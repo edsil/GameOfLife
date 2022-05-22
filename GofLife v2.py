@@ -1,44 +1,47 @@
+from fileinput import filename
 import pygame
 import numpy as np
 import random
 import time
 
 # # Settings
-timesofdo = 0
-treop = 1
-rows = 250
-columns = 250
+rows = 200
+columns = 355
+scale = 3.0
 densit = 0.85
-speed = 10000000
 refresh = False
 showStats = False
-randomizer = 0.0000000001
+randomizer = 0.00002
+messer = 0.01
 powers = {}  # Powers - will call setPowers from main()
 rules = {}  # Rules for dying, living, being born - will call setRules from main()
 colors = {}  # Colors - will call setColors from main()
 
 
 def main():
+    iterCounter = 0
+    fileCounter = 0
+    fileName = "gameoflife"
     try:
+        counter = 1
         setPowers(powers)
         setColors(colors)
         setRules(rules)
         pygame.init()
         pygame.display.set_caption("Game of Life")
-        screen = pygame.display.set_mode((columns, rows))
+        screen = pygame.display.set_mode((columns*scale, rows*scale))
         elem = np.full([rows, columns], -1, dtype=np.dtype("int"))
         fillMatrix(elem, powers, densit)
-        gens = 3
-        counter = 10
+        gens = 1
         while gens > 0:
             for i in range(gens):
+                draw(screen, elem, colors)
                 interact(elem, powers, rules)
-                counter -= 1
-                if refresh or counter == 0:
-                    draw(screen, elem, colors)
-                    counter = 10
-                # time.sleep(1/speed)
-            draw(screen, elem, colors)
+                iterCounter += 1
+                if(iterCounter % 10 == 0):
+                    name = fileName + ("00000"+str(fileCounter))[-5:] + ".jpg"
+                    draw(screen, elem, colors, name)
+                    fileCounter += 1
             gens = int(input("Generations to run (0 to stop): "))
 
     except Exception as err:
@@ -61,22 +64,38 @@ def fillMatrix(matrix, powers, density):
                     matrix[r][c] = -1
 
 
+def gomesser(matrix):
+    print("Messing")
+    matCopy = np.copy(matrix)
+    rows, cols = matrix.shape
+    for r in range(rows):
+        for c in range(cols):
+            r = random.randint(0, 3)
+            if (r == 0):
+                matrix[r][c] = matCopy[c % rows][r % cols]
+            if (r == 2):
+                matrix[r][c] = matCopy[r][r % cols]
+            else:
+                matrix[r][c] = matCopy[c % rows][c]
+
+
 def interact(matrix, powers, rules):
     matCopy = np.copy(matrix)
     rows, cols = matrix.shape
     cell = np.full((3, 3), -1, dtype="int")
     for r in range(rows):
-        print(treop)
+        # if random.random() < messer:
+        #    gomesser(matrix)
         for c in range(cols):
             v = -1
             if not(c == 0 or c == cols-1 or r == 0 or r == rows-1):
-                cell[0][1] = matCopy[r-1][c]
                 cell[0][0] = matCopy[r-1][c-1]
+                cell[0][1] = matCopy[r-1][c]
                 cell[0][2] = matCopy[r-1][c+1]
                 cell[1][0] = matCopy[r][c-1]
                 cell[1][1] = matCopy[r][c]
+                cell[1][2] = matCopy[r][c+1]
                 cell[2][0] = matCopy[r+1][c-1]
-                cell[2][2] = matCopy[r][c+1]
                 cell[2][1] = matCopy[r+1][c]
                 cell[2][2] = matCopy[r+1][c+1]
                 v = judge(cell, powers, rules)
@@ -86,14 +105,12 @@ def interact(matrix, powers, rules):
 
 
 def judge(cell, powers, rules):
-    global treop
     center = cell[1][1]
     bugs = {}
     winners = []
     maxPoints = 0
     for row in range(3):
         for col in range(3):
-            treop += 1
             tBug = cell[row][col]
             if tBug != -1:
                 if tBug in bugs:
@@ -179,17 +196,21 @@ def setRules(rules):
     # t = type - "or"-any of the three conditions below; "and"-all of the conditions below
     # mns = minimun of the same; mxs = maximun of the same
     # mnp = minimun points; mxp = maximun points
-    rules["d"] = {"type": "or", "mns": 0, "mxs": 2, "mnp": -10, "mxp": -3}
+    rules["d"] = {"type": "or", "mns": 0, "mxs": 3, "mnp": -10, "mxp": 0}
     rules["l"] = {"type": "and", "mns": 3, "mxs": 5, "mnp": -3, "mxp": 10}
-    rules["b"] = {"type": "and", "mns": 2, "mxs": 5, "mnp": 1, "mxp": 10}
+    rules["b"] = {"type": "and", "mns": 4, "mxs": 5, "mnp": 4, "mxp": 10}
 
 
-def draw(screen, matrix, colors):
-    draw = np.zeros((matrix.shape[0], matrix.shape[1], 3))
-    for r, row in enumerate(matrix):
-        for c, col in enumerate(row):
-            draw[r][c] = colors[matrix[r][c]]
+def draw(screen, matrix, colors, filename=False):
+    cols, rows = matrix.shape
+    draw = np.zeros((rows, cols, 3))
+    for r in range(rows):
+        for c in range(cols):
+            draw[r][c] = colors[matrix[c][r]]
     surf = pygame.surfarray.make_surface(draw)
+    if filename:
+        pygame.image.save(surf, filename)
+    surf = pygame.transform.scale(surf, (rows*scale, cols*scale))
     screen.blit(surf, (0, 0))
     pygame.display.update()
     pygame.event.pump()
